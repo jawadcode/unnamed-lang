@@ -1,9 +1,11 @@
 use std::fmt;
 
-use crate::lexer::token_kind::TokenKind;
+use crate::{lexer::token_kind::TokenKind, parser::Spanned};
 
-type Boxpr = Box<Expr>;
+type Boxpr = Box<Spanned<Expr>>;
+type Exprs = Vec<Spanned<Expr>>;
 
+#[derive(Clone, Debug, PartialEq)]
 pub struct Function {
     pub params: Vec<String>,
     pub body: Boxpr,
@@ -11,10 +13,16 @@ pub struct Function {
 
 impl fmt::Display for Function {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, ":params ({}) :body {}", self.params.join(" "), self.body)
+        write!(
+            f,
+            ":params ({}) :body {}",
+            self.params.join(" "),
+            self.body.node
+        )
     }
 }
 
+#[derive(Clone, Debug, PartialEq)]
 pub enum Stmt {
     FnDef { ident: String, fun: Function },
     Let { ident: String, expr: Boxpr },
@@ -29,6 +37,7 @@ impl fmt::Display for Stmt {
     }
 }
 
+#[derive(Clone, Debug, PartialEq)]
 pub enum Expr {
     Literal(Lit),
     Ident(String),
@@ -42,7 +51,7 @@ pub enum Expr {
         arms: Vec<MatchArm>,
     },
     Block {
-        exprs: Vec<Expr>,
+        exprs: Exprs,
     },
     BinaryOp {
         op: TokenKind,
@@ -55,10 +64,10 @@ pub enum Expr {
     },
     FnCall {
         fun: Boxpr,
-        args: Vec<Expr>,
+        args: Exprs,
     },
     Closure(Function),
-    Stmt(Stmt),
+    Stmt(Spanned<Stmt>),
 }
 
 impl fmt::Display for Expr {
@@ -88,8 +97,9 @@ impl fmt::Display for Expr {
     }
 }
 
+#[derive(Clone, Debug, PartialEq)]
 pub struct MatchArm {
-    pub pattern: Vec<Expr>,
+    pub pattern: Exprs,
     pub result: Boxpr,
 }
 
@@ -99,6 +109,7 @@ impl fmt::Display for MatchArm {
     }
 }
 
+#[derive(Clone, Debug, PartialEq)]
 pub enum Lit {
     Unit,
     Bool(bool),

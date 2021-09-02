@@ -3,11 +3,11 @@ use crate::{
     lexer::token_kind::TokenKind,
 };
 
-use super::{error::SyntaxError, Parser, SyntaxResult};
+use super::{error::SyntaxError, ParseResult, Parser, Spanned};
 
 #[allow(unused_must_use)]
 impl Parser<'_> {
-    pub fn parse_stmt(&mut self) -> SyntaxResult<Stmt> {
+    pub fn parse_stmt(&mut self) -> ParseResult<Stmt> {
         match self.peek() {
             TokenKind::Let => self.parse_let(),
             TokenKind::Function => self.parse_fndef(),
@@ -23,34 +23,25 @@ impl Parser<'_> {
         }
     }
 
-    pub fn parse_let(&mut self) -> SyntaxResult<Stmt> {
+    pub fn parse_let(&mut self) -> ParseResult<Stmt> {
         self.next_token();
-        let ident = self.next_token()?;
-        if !matches!(ident.kind, TokenKind::Ident) {
-            return Err(SyntaxError::UnexpectedToken {
-                expected: TokenKind::Ident.to_string(),
-                token: ident,
-            });
-        }
+        let ident = self.consume_next(TokenKind::Ident)?;
 
-        let ident = self.text(ident).to_string();
+        let text = self.text(ident).to_string();
         self.consume(TokenKind::Assign)?;
         let expr = self.boxed_expr()?;
 
-        Ok(Stmt::Let { ident, expr })
+        Ok(Spanned {
+            span: (ident.span.start..expr.span.end).into(),
+            node: Stmt::Let { ident: text, expr },
+        })
     }
 
-    pub fn parse_fndef(&mut self) -> SyntaxResult<Stmt> {
+    pub fn parse_fndef(&mut self) -> ParseResult<Stmt> {
         self.next_token();
-        let ident = self.next_token()?;
-        if !matches!(ident.kind, TokenKind::Ident) {
-            return Err(SyntaxError::UnexpectedToken {
-                expected: TokenKind::Ident.to_string(),
-                token: ident,
-            });
-        }
+        let ident = self.consume_next(TokenKind::Ident)?;
 
-        let ident = self.text(ident).to_string();
+        let text = self.text(ident).to_string();
         let mut params = Vec::new();
         while self.at(TokenKind::Ident) {
             params.push({
@@ -61,9 +52,12 @@ impl Parser<'_> {
         self.consume(TokenKind::Assign)?;
         let body = self.boxed_expr()?;
 
-        Ok(Stmt::FnDef {
-            ident,
-            fun: Function { params, body },
+        Ok(Spanned {
+            span: (ident.span.start..body.span.end).into(),
+            node: Stmt::FnDef {
+                ident: text,
+                fun: Function { params, body },
+            },
         })
     }
 }

@@ -1,9 +1,10 @@
 use crate::{
     ast::{Expr, Function, Lit, MatchArm},
     lexer::token_kind::TokenKind,
+    parser::Spanned,
 };
 
-use super::{error::SyntaxError, Parser, SyntaxResult};
+use super::{error::SyntaxError, ParseResult, Parser, SyntaxResult};
 
 // const EXPRESSION_TERMINATOR: [TokenKind; 10] = [
 //     TokenKind::RightParen,
@@ -84,7 +85,7 @@ impl Operator for TokenKind {
 
 #[allow(unused_must_use)]
 impl Parser<'_> {
-    fn parse_expr(&mut self, binding_power: u8) -> SyntaxResult<Expr> {
+    fn parse_expr(&mut self, binding_power: u8) -> ParseResult<Expr> {
         let mut lhs = match self.peek() {
             lit @ TokenKind::Unit
             | lit @ TokenKind::True
@@ -159,13 +160,16 @@ impl Parser<'_> {
                     break;
                 }
 
-                self.consume(op)?;
+                let op_token = self.consume_next(op)?;
 
                 // no recursive call here, because we have already
                 // parsed our operand `lhs`
-                lhs = Expr::UnaryOp {
-                    op,
-                    expr: Box::new(lhs),
+                lhs = Spanned {
+                    span: (lhs.span.start..op_token.span.end).into(),
+                    node: Expr::UnaryOp {
+                        op,
+                        expr: Box::new(lhs),
+                    },
                 };
                 // parsed an operator --> go round the loop again
                 continue;
@@ -181,10 +185,13 @@ impl Parser<'_> {
                 self.consume(op)?;
 
                 let rhs = self.parse_expr(right_binding_power)?;
-                lhs = Expr::BinaryOp {
-                    op,
-                    lhs: Box::new(lhs),
-                    rhs: Box::new(rhs),
+                lhs = Spanned {
+                    span: (lhs.span.start..rhs.span.end).into(),
+                    node: Expr::BinaryOp {
+                        op,
+                        lhs: Box::new(lhs),
+                        rhs: Box::new(rhs),
+                    },
                 };
                 // parsed an operator --> go round the loop again
                 continue;
@@ -196,11 +203,15 @@ impl Parser<'_> {
     }
 
     #[inline(always)]
-    fn parse_stmt_expr(&mut self) -> SyntaxResult<Expr> {
-        self.parse_stmt().map(Expr::Stmt)
+    fn parse_stmt_expr(&mut self) -> ParseResult<Expr> {
+        let stmt = self.parse_stmt()?;
+        Ok(Spanned {
+            span: stmt.span,
+            node: Expr::Stmt(stmt),
+        })
     }
 
-    fn parse_basic_expr(&mut self) -> SyntaxResult<Expr> {
+    fn parse_basic_expr(&mut self) -> ParseResult<Expr> {
         match self.peek() {
             lit @ TokenKind::Unit
             | lit @ TokenKind::True
@@ -220,42 +231,46 @@ impl Parser<'_> {
         }
     }
 
-    fn parse_lit(&mut self, lit: TokenKind) -> SyntaxResult<Expr> {
+    fn parse_lit(&mut self, lit: TokenKind) -> ParseResult<Expr> {
         let token = self.next_token()?;
         let text = self.text(token);
 
-        Ok(Expr::Literal(match lit {
-            TokenKind::Unit => Lit::Unit,
-            TokenKind::True => Lit::Bool(true),
-            TokenKind::False => Lit::Bool(false),
-            TokenKind::IntLit => Lit::Int(
-                // stdlib ftw
-                text.parse()
-                    .map_err(|_| SyntaxError::InvalidLiteral(token))?,
-            ),
-            TokenKind::FloatLit => Lit::Float(
-                text.parse()
-                    .map_err(|_| SyntaxError::InvalidLiteral(token))?,
-            ),
-            TokenKind::StringLit => Lit::String(
-                // Trim the quotes
-                text[1..(text.len() - 1)].to_string(),
-            ),
-            _ => unreachable!(),
-        }))
+        Ok(Spanned {
+            span: token.span,
+            node: Expr::Literal(match lit {
+                TokenKind::Unit => Lit::Unit,
+                TokenKind::True => Lit::Bool(true),
+                TokenKind::False => Lit::Bool(false),
+                TokenKind::IntLit => Lit::Int(
+                    // stdlib ftw
+                    text.parse()
+                        .map_err(|_| SyntaxError::InvalidLiteral(token))?,
+                ),
+                TokenKind::FloatLit => Lit::Float(
+                    text.parse()
+                        .map_err(|_| SyntaxError::InvalidLiteral(token))?,
+                ),
+                TokenKind::StringLit => Lit::String(
+                    // Trim the quotes
+                    text[1..(text.len() - 1)].to_string(),
+                ),
+                _ => unreachable!(),
+            }),
+        })
     }
 
-    fn parse_ident(&mut self) -> SyntaxResult<Expr> {
-        let text = {
-            let token = self.next_token()?;
-            self.text(token)
-        };
+    fn parse_ident(&mut self) -> ParseResult<Expr> {
+        let token = self.next_token()?;
+        let text = self.text(token);
 
-        Ok(Expr::Ident(text.to_string()))
+        Ok(Spanned {
+            span: token.span,
+            node: Expr::Ident(text.to_string()),
+        })
     }
 
-    fn parse_closure(&mut self) -> SyntaxResult<Expr> {
-        self.next_token();
+    fn parse_closure(&mut self) -> ParseResult<Expr> {
+        let token = self.next_token()?;
         let mut params = Vec::new();
         while self.at(TokenKind::Ident) {
             let text = {
@@ -267,26 +282,32 @@ impl Parser<'_> {
         self.consume(TokenKind::FatArrow)?;
 
         let body = self.boxed_expr()?;
-        Ok(Expr::Closure(Function { params, body }))
+        Ok(Spanned {
+            span: (token.span.start..body.span.end).into(),
+            node: Expr::Closure(Function { params, body }),
+        })
     }
 
-    fn parse_if_expr(&mut self) -> SyntaxResult<Expr> {
-        self.next_token();
+    fn parse_if_expr(&mut self) -> ParseResult<Expr> {
+        let token = self.next_token()?;
         let cond = self.boxed_expr()?;
         self.consume(TokenKind::Then)?;
         let true_value = self.boxed_expr()?;
         self.consume(TokenKind::Else)?;
         let false_value = self.boxed_expr()?;
 
-        Ok(Expr::If {
-            cond,
-            true_value,
-            false_value,
+        Ok(Spanned {
+            span: (token.span.start..false_value.span.end).into(),
+            node: Expr::If {
+                cond,
+                true_value,
+                false_value,
+            },
         })
     }
-
-    fn parse_match_expr(&mut self) -> SyntaxResult<Expr> {
-        self.next_token();
+ 
+    fn parse_match_expr(&mut self) -> ParseResult<Expr> {
+        let token = self.next_token()?;
         let expr = self.boxed_expr()?;
         let mut arms = Vec::new();
         // Parse all match arms
@@ -311,12 +332,15 @@ impl Parser<'_> {
             });
         }
 
-        self.consume(TokenKind::End)?;
-        Ok(Expr::Match { expr, arms })
+        let end = self.consume_next(TokenKind::End)?;
+        Ok(Spanned {
+            span: (token.span.start..end.span.end).into(),
+            node: Expr::Match { expr, arms },
+        })
     }
 
-    fn parse_block_expr(&mut self) -> SyntaxResult<Expr> {
-        self.next_token();
+    fn parse_block_expr(&mut self) -> ParseResult<Expr> {
+        let token = self.next_token()?;
         let mut exprs = Vec::new();
         while !self.at(TokenKind::End) {
             if self.multi_at(&[TokenKind::Let, TokenKind::Function]) {
@@ -330,18 +354,24 @@ impl Parser<'_> {
             self.consume(TokenKind::Semicolon)?;
         }
 
-        self.consume(TokenKind::End)?;
-        Ok(Expr::Block { exprs })
+        let end = self.consume_next(TokenKind::End)?;
+        Ok(Spanned {
+            span: (token.span.start..end.span.end).into(),
+            node: Expr::Block { exprs },
+        })
     }
 
-    fn parse_grouping(&mut self) -> SyntaxResult<Expr> {
-        self.next_token();
-        let expr = self.expr()?;
-        self.consume(TokenKind::RightParen)?;
-        Ok(expr)
+    fn parse_grouping(&mut self) -> ParseResult<Expr> {
+        let token = self.next_token()?;
+        let expr = self.expr()?.node;
+        let end = self.consume_next(TokenKind::RightParen)?;
+        Ok(Spanned {
+            span: (token.span.start..end.span.end).into(),
+            node: expr,
+        })
     }
 
-    fn parse_fn_call(&mut self, lhs: Expr) -> SyntaxResult<Expr> {
+    fn parse_fn_call(&mut self, lhs: Spanned<Expr>) -> ParseResult<Expr> {
         let mut args = Vec::new();
         while self.multi_at(&FUNCTION_ARG_TOKENS) {
             args.push(match self.peek() {
@@ -364,31 +394,42 @@ impl Parser<'_> {
                 }
             })
         }
-
-        Ok(Expr::FnCall {
-            fun: Box::new(lhs),
-            args,
+        Ok(if args.is_empty() {
+            lhs
+        } else {
+            // We can unwrap because `args` is guaranteed to have at least one element here
+            let end = args.last().unwrap();
+            Spanned {
+                span: (lhs.span.start..end.span.end).into(),
+                node: Expr::FnCall {
+                    fun: Box::new(lhs),
+                    args,
+                },
+            }
         })
     }
 
-    fn parse_prefix_op(&mut self, op: TokenKind) -> SyntaxResult<Expr> {
-        self.next_token();
+    fn parse_prefix_op(&mut self, op: TokenKind) -> ParseResult<Expr> {
+        let token = self.next_token()?;
         // Get right binding power of the operator,
         // we can unwrap because `op` is guaranteed to be a valid prefix operator
         // because of where it is called in `self.parse_expr`
         let ((), right_binding_power) = op.prefix_binding_power().unwrap();
 
         let expr = Box::new(self.parse_expr(right_binding_power)?);
-        Ok(Expr::UnaryOp { op, expr })
+        Ok(Spanned {
+            span: (token.span.start..expr.span.end).into(),
+            node: Expr::UnaryOp { op, expr },
+        })
     }
 
     #[inline(always)]
-    pub fn expr(&mut self) -> SyntaxResult<Expr> {
+    pub fn expr(&mut self) -> ParseResult<Expr> {
         self.parse_expr(0)
     }
 
     #[inline(always)]
-    pub(crate) fn boxed_expr(&mut self) -> SyntaxResult<Box<Expr>> {
+    pub(crate) fn boxed_expr(&mut self) -> SyntaxResult<Box<Spanned<Expr>>> {
         self.parse_expr(0).map(Box::new)
     }
 }
@@ -480,13 +521,14 @@ end",
     #[test]
     fn parse_block_expr() {
         assert_expr!(
-            "
+            r#"
 do
   let thing = 123;
+  print "lol";
   let thing2 = 234;
   thing + thing2
-end",
-            "(block ((let thing 123) (let thing2 234) (+ thing thing2)))"
+end"#,
+            r#"(block ((let thing 123) (print "lol") (let thing2 234) (+ thing thing2)))"#
         );
     }
 }

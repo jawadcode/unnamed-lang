@@ -2,13 +2,31 @@ pub mod error;
 pub mod expr;
 pub mod stmt;
 
+use std::fmt;
 use std::iter::Peekable;
 
-use crate::lexer::{token::Token, token_kind::TokenKind, Lexer};
+use crate::lexer::{
+    token::{Span, Token},
+    token_kind::TokenKind,
+    Lexer,
+};
 
 use self::error::SyntaxError;
 
 type SyntaxResult<T> = Result<T, SyntaxError>;
+type ParseResult<T> = Result<Spanned<T>, SyntaxError>;
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct Spanned<T: fmt::Display> {
+    pub span: Span,
+    pub node: T,
+}
+
+impl<T: fmt::Display> fmt::Display for Spanned<T> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.node.fmt(f)
+    }
+}
 
 pub struct Parser<'input> {
     input: &'input str,
@@ -70,6 +88,19 @@ impl<'input> Parser<'input> {
             })
         } else {
             Ok(())
+        }
+    }
+
+    /// Returns the next token but also checks that it is as `expected`
+    pub fn consume_next(&mut self, expected: TokenKind) -> SyntaxResult<Token> {
+        let token = self.next_token()?;
+        if token.kind != expected {
+            Err(SyntaxError::UnexpectedToken {
+                expected: expected.to_string(),
+                token,
+            })
+        } else {
+            Ok(token)
         }
     }
 }
