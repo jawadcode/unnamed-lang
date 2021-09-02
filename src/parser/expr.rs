@@ -305,7 +305,7 @@ impl Parser<'_> {
             },
         })
     }
- 
+
     fn parse_match_expr(&mut self) -> ParseResult<Expr> {
         let token = self.next_token()?;
         let expr = self.boxed_expr()?;

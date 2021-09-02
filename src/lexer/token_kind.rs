@@ -307,7 +307,7 @@ impl fmt::Display for TokenKind {
                 Self::Question => "?",
                 Self::Semicolon => ";",
                 Self::Eof => "EOF",
-                Self::Error => "Invalid token",
+                Self::Error => "invalid token",
             }
         )
     }
