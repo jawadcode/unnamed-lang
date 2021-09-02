@@ -61,8 +61,8 @@ end
 ```
 import std::io
 
-function read_int = try io::stdin().map int::from
-function sigma start stop f = (start..stop).map f.sum ()
+function read_int = io::stdin ().map int::from?
+function sigma start stop f = (start..stop).map f.sum
 
 function main do
   print "Start: ";
@@ -71,7 +71,7 @@ function main do
   print "\nStop: ";
   let stop = read_int;
 
-  printf "\nResult: {}" {sigma start stop (fn x => x + 1)}
+  printf "\nResult: {}" {sigma start stop fn x => x + 1}
 end
 ```
 
@@ -88,7 +88,7 @@ end
 
 function main do
   let me = Person::new "Jawad" 420;
-  me.info ();
+  me.info;
 end
 ```
 
@@ -99,6 +99,10 @@ enum Maybe[a] =
   | None
 
 function main do
-  io::stdin ().map println;
+  let input = io::stdin ();
+  match input
+  | Just str => println str
+  | None     => eprintln "Failed to read input"
+  end
 end
 ```
