@@ -10,10 +10,15 @@ use codespan_reporting::{
 };
 
 pub enum SyntaxError {
-    UnexpectedToken { expected: String, token: Token },
+    UnexpectedToken {
+        expected: String,
+        token: Token,
+    },
     InvalidLiteral(Token),
     UnexpectedEndOfInput(Token),
     InvalidToken(Token),
+    /// Not actually an error 🤫
+    End,
 }
 
 impl SyntaxError {
@@ -42,6 +47,7 @@ impl SyntaxError {
                 .with_labels(vec![
                     Label::primary(file_id, token.span).with_message(token.kind.to_string())
                 ]),
+            _ => unreachable!(),
         };
 
         let writer = StandardStream::stderr(ColorChoice::Always);

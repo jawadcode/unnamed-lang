@@ -69,7 +69,7 @@ impl Operator for TokenKind {
             TokenKind::And => (3, 4),
             TokenKind::Equals | TokenKind::NotEq => (5, 6),
             TokenKind::Less | TokenKind::Greater | TokenKind::LessEq | TokenKind::GreatEq => (7, 8),
-            TokenKind::Plus | TokenKind::Minus => (9, 10),
+            TokenKind::Add | TokenKind::Minus => (9, 10),
             TokenKind::Multiply | TokenKind::Divide => (11, 12),
             _ => return None,
         })
@@ -118,7 +118,7 @@ impl Parser<'_> {
         /* Credit to https://domenicquirl.github.io/blog/parsing-basics/#binary-operators */
         loop {
             let op = match self.peek() {
-                op @ TokenKind::Plus
+                op @ TokenKind::Add
                 | op @ TokenKind::Minus
                 | op @ TokenKind::Multiply
                 | op @ TokenKind::Divide
@@ -134,6 +134,8 @@ impl Parser<'_> {
                 // These tokens are expression terminators,
                 // i.e. if one of these appears after an expression, you stop parsing it
                 TokenKind::RightParen
+                | TokenKind::Let
+                | TokenKind::Function
                 | TokenKind::FatArrow
                 | TokenKind::Question
                 | TokenKind::Semicolon
@@ -284,7 +286,11 @@ impl Parser<'_> {
         let body = self.boxed_expr()?;
         Ok(Spanned {
             span: (token.span.start..body.span.end).into(),
-            node: Expr::Closure(Function { params, body }),
+            node: Expr::Closure(Function {
+                ident: None,
+                params,
+                body,
+            }),
         })
     }
 

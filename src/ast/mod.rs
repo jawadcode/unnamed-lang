@@ -55,6 +55,7 @@ pub enum Lit {
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct Function {
+    pub ident: Option<String>,
     pub params: Vec<String>,
     pub body: Boxpr,
 }

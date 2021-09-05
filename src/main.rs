@@ -1,17 +1,32 @@
-use std::io::{self, Write};
+use std::{env, fs, process};
 
-use unnamed_lang::parser::Parser;
+use unnamed_lang::{
+    interpreter::Interpreter,
+    parser::{error::SyntaxError, Parser},
+};
 
 fn main() {
+    let mut args = env::args();
+    let filename = args.nth(1).unwrap();
+    let contents = fs::read_to_string(&filename).unwrap();
+
+    let mut parser = Parser::new(&contents);
+    let mut stmts = Vec::new();
     loop {
-        let mut input = String::new();
-        print!("> ");
-        io::stdout().flush().unwrap();
-        io::stdin().read_line(&mut input).unwrap();
-        let mut parser = Parser::new(&input);
         match parser.parse_stmt() {
-            Ok(expr) => println!("{}", expr),
-            Err(err) => err.display(&input, "repl.ul"),
+            Ok(stmt) => stmts.push(stmt),
+            Err(err) => {
+                if let SyntaxError::End = err {
+                    break;
+                }
+                err.display(&contents, &filename);
+                process::exit(1);
+            }
         }
+    }
+
+    let mut interpreter = Interpreter::default();
+    if let Err(err) = interpreter.run(&stmts) {
+        err.display(&contents, &filename)
     }
 }

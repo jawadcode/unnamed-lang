@@ -11,7 +11,7 @@ impl Parser<'_> {
         match self.peek() {
             TokenKind::Let => self.parse_let(),
             TokenKind::Function => self.parse_fndef(),
-            TokenKind::Eof => Err(SyntaxError::UnexpectedEndOfInput(self.next_token()?)),
+            TokenKind::Eof => Err(SyntaxError::End),
 
             _ => {
                 let token = self.next_token()?;
@@ -23,7 +23,7 @@ impl Parser<'_> {
         }
     }
 
-    pub fn parse_let(&mut self) -> ParseResult<Stmt> {
+    fn parse_let(&mut self) -> ParseResult<Stmt> {
         self.next_token();
         let ident = self.consume_next(TokenKind::Ident)?;
 
@@ -37,11 +37,11 @@ impl Parser<'_> {
         })
     }
 
-    pub fn parse_fndef(&mut self) -> ParseResult<Stmt> {
+    fn parse_fndef(&mut self) -> ParseResult<Stmt> {
         self.next_token();
         let ident = self.consume_next(TokenKind::Ident)?;
 
-        let text = self.text(ident).to_string();
+        let text = self.text(ident);
         let mut params = Vec::new();
         while self.at(TokenKind::Ident) {
             params.push({
@@ -55,8 +55,12 @@ impl Parser<'_> {
         Ok(Spanned {
             span: (ident.span.start..body.span.end).into(),
             node: Stmt::FnDef {
-                ident: text,
-                fun: Function { params, body },
+                ident: text.to_string(),
+                fun: Function {
+                    ident: Some(text.to_string()),
+                    params,
+                    body,
+                },
             },
         })
     }
