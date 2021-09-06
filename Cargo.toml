@@ -7,7 +7,6 @@ edition = "2018"
 
 [profile.dev]
 lto = "off"
-codegen-units = 4
 
 [profile.release]
 lto = "fat"

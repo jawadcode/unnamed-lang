@@ -1,8 +1,9 @@
-function fib n =
-  if n < 2 then n
-  else fib (n - 1) + fib(n - 1) 
+function compose f g = fn x => g (f x)
 
 function main = do
-  print "Fib of 32";
-  print (fib 32);
+  function f x = x * x + x;
+  function g x = x - x * x;
+
+  let h = compose f g;
+  print (h 123);
 end

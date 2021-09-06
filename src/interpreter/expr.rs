@@ -1,13 +1,16 @@
 use std::cmp::Ordering;
 
 use crate::{
-    ast::{Lit, MatchArm},
+    ast::{Function, Lit, MatchArm},
     interpreter::value::Value,
     lexer::{token::Span, token_kind::TokenKind},
     visitor::Visitor,
 };
 
-use super::{error::InterpreterError, Interpreter, SpanExpr, ValueResult};
+use super::{
+    error::InterpreterError, value::Closure, Interpreter, InterpreterResult, SpanExpr, SpanStmt,
+    ValueResult,
+};
 
 impl Interpreter {
     pub(crate) fn visit_literal(&mut self, lit: &Lit) -> ValueResult {
@@ -168,17 +171,8 @@ impl Interpreter {
     ) -> ValueResult {
         let value = match self.visit_expr(fun)? {
             Value::Function(fun) => {
-                let params_len = fun.params.len();
-                let args_len = args.len();
-                if params_len != args_len {
-                    return Err(InterpreterError::ArityMismatch {
-                        span,
-                        expected: params_len,
-                        got: args_len,
-                    });
-                }
+                self.setup_fn(span, &fun.params, args)?;
 
-                self.env.new_scope();
                 for (param, arg) in fun.params.iter().zip(args) {
                     let value = self.visit_expr(arg)?;
                     self.env.set(param.to_string(), value);
@@ -186,27 +180,60 @@ impl Interpreter {
                 self.visit_expr(fun.body.as_ref())?
             }
             Value::BuiltinFn(fun) => {
-                let params_len = fun.params.len();
-                let args_len = args.len();
-                if params_len != args_len {
-                    return Err(InterpreterError::ArityMismatch {
-                        span,
-                        expected: params_len,
-                        got: args_len,
-                    });
-                }
+                self.setup_fn(span, &fun.params, args)?;
 
                 let mut args_values = Vec::new();
                 for arg in args {
                     args_values.push(self.visit_expr(arg)?);
                 }
-                self.env.new_scope();
                 (fun.body)(&mut self.env, &args_values)
+            }
+            Value::Closure(c) => {
+                self.env.push_scope(c.scope);
+                self.setup_fn(span, &c.fun.params, args)?;
+                for (param, arg) in c.fun.params.iter().zip(args) {
+                    let value = self.visit_expr(arg)?;
+                    self.env.set(param.to_string(), value);
+                }
+                self.visit_expr(c.fun.body.as_ref())?
             }
             v => return Err(InterpreterError::NotCallable { span, typ: v.typ() }),
         };
 
         self.env.exit_scope();
         Ok(value)
+    }
+
+    fn setup_fn(
+        &mut self,
+        span: Span,
+        params: &[String],
+        args: &[SpanExpr],
+    ) -> InterpreterResult<()> {
+        let params_len = params.len();
+        let args_len = args.len();
+        if params_len != args_len {
+            return Err(InterpreterError::ArityMismatch {
+                span,
+                expected: params_len,
+                got: args_len,
+            });
+        }
+        self.env.new_scope();
+        Ok(())
+    }
+
+    pub(crate) fn visit_closure(&mut self, fun: &Function) -> ValueResult {
+        let closure = Closure {
+            scope: self.env.get_innermost_scope(),
+            fun: fun.clone(),
+        };
+
+        Ok(Value::Closure(closure))
+    }
+
+    pub(crate) fn visit_stmt_expr(&mut self, stmt: &SpanStmt) -> ValueResult {
+        self.visit_stmt(stmt)?;
+        Ok(Value::Unit)
     }
 }

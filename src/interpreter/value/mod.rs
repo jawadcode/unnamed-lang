@@ -4,7 +4,7 @@ use std::fmt::{self, Debug};
 
 use crate::ast::Function;
 
-use super::env::Env;
+use super::env::{Env, Scope};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Value {
@@ -14,6 +14,7 @@ pub enum Value {
     String(String),
     Function(Function),
     BuiltinFn(BuiltinFn),
+    Closure(Closure),
 }
 
 #[derive(Clone)]
@@ -35,6 +36,12 @@ impl PartialEq for BuiltinFn {
     }
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub struct Closure {
+    pub scope: Scope,
+    pub fun: Function,
+}
+
 impl fmt::Display for Value {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
@@ -47,6 +54,7 @@ impl fmt::Display for Value {
                 None => write!(f, "<fn({})>", &fun.params.join(", ")),
             },
             Self::BuiltinFn(fun) => fun.fmt(f),
+            Self::Closure(c) => write!(f, "<closure({})>", &c.fun.params.join(", ")),
         }
     }
 }

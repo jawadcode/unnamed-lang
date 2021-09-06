@@ -6,7 +6,7 @@ use super::{value::Value, ValueResult};
 
 pub type Scope = HashMap<String, Value>;
 
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Env {
     scopes: Vec<Scope>,
     depth: usize,
@@ -37,6 +37,15 @@ impl Env {
 
     pub fn set(&mut self, name: String, value: Value) {
         self.scopes.get_mut(self.depth).unwrap().insert(name, value);
+    }
+
+    pub fn push_scope(&mut self, scope: Scope) {
+        self.scopes.push(scope);
+        self.depth += 1;
+    }
+
+    pub fn get_innermost_scope(&self) -> Scope {
+        self.scopes.last().unwrap().clone()
     }
 
     pub fn new_scope(&mut self) {

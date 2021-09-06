@@ -44,8 +44,8 @@ impl Interpreter {
                 node: Expr::Ident("main".to_string()),
             },
             &[],
-        )
-        .map_err(|_| InterpreterError::MissingMain)?;
+        )?;
+
         Ok(())
     }
 }
@@ -70,6 +70,13 @@ impl Default for Interpreter {
 }
 
 impl Visitor<ValueResult, InterpreterResult<()>> for Interpreter {
+    fn visit_stmt(&mut self, s: &SpanStmt) -> InterpreterResult<()> {
+        match &s.node {
+            Stmt::FnDef { ident, fun } => self.visit_fndef(ident, fun),
+            Stmt::Let { ident, expr } => self.visit_let(ident, expr),
+        }
+    }
+
     fn visit_expr(&mut self, e: &SpanExpr) -> ValueResult {
         match &e.node {
             Expr::Literal(lit) => self.visit_literal(lit),
@@ -86,15 +93,8 @@ impl Visitor<ValueResult, InterpreterResult<()>> for Interpreter {
             }
             Expr::UnaryOp { op, expr } => self.visit_unary_op(e.span, op, expr.as_ref()),
             Expr::FnCall { fun, args } => self.visit_fncall(e.span, fun.as_ref(), args),
-            Expr::Closure(_) => todo!(),
-            Expr::Stmt(_) => todo!(),
-        }
-    }
-
-    fn visit_stmt(&mut self, s: &SpanStmt) -> InterpreterResult<()> {
-        match &s.node {
-            Stmt::FnDef { ident, fun } => self.visit_fndef(ident, fun),
-            Stmt::Let { ident, expr } => self.visit_let(ident, expr),
+            Expr::Closure(fun) => self.visit_closure(fun),
+            Expr::Stmt(stmt) => self.visit_stmt_expr(stmt),
         }
     }
 }

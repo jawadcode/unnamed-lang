@@ -14,6 +14,7 @@ impl Value {
             Value::String(_) => Type::String,
             Value::Function(_) => Type::Function,
             Value::BuiltinFn(_) => Type::Function,
+            Value::Closure(_) => Type::Function,
         }
     }
 
@@ -99,6 +100,7 @@ impl From<Value> for bool {
             Value::String(s) => !s.is_empty(),
             Value::Function(_) => true,
             Value::BuiltinFn(_) => true,
+            Value::Closure(_) => true,
         }
     }
 }
@@ -112,6 +114,7 @@ impl From<&Value> for bool {
             Value::String(s) => !s.is_empty(),
             Value::Function(_) => true,
             Value::BuiltinFn(_) => true,
+            Value::Closure(_) => true,
         }
     }
 }
