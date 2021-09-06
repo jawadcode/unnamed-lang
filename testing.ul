@@ -3,7 +3,7 @@ function compose f g = fn x => g (f x)
 function main = do
   function f x = x * x + x;
   function g x = x - x * x;
-
+  (* epic *)
   let h = compose f g;
   print (h 123);
 end

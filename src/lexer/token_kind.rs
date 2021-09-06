@@ -1,6 +1,6 @@
 use std::fmt;
 
-use logos::Logos;
+use logos::{Lexer, Logos, Skip};
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum TokenKind {
@@ -196,10 +196,33 @@ pub enum LogosToken {
     #[token(";")]
     Semicolon,
 
-    #[regex(r"\(\*([^*]|\*[^/])*\*\)", logos::skip)]
+    #[token("(*", comment_lexer)]
     #[regex(r"[ \t\r\n\f]+", logos::skip)]
     #[error]
     Error,
+}
+
+fn comment_lexer(lex: &mut Lexer<LogosToken>) -> Skip {
+    let rem = lex.remainder();
+
+    let (mut nesting, mut previous) = (0, None);
+    for (idx, current) in rem.char_indices() {
+        if let Some(previous) = previous {
+            match (current, previous) {
+                ('*', '(') => nesting += 1,
+                (')', '*') if nesting > 0 => nesting -= 1,
+                (')', '*') => {
+                    lex.bump(idx + 2);
+                    return Skip;
+                }
+                _ => {}
+            }
+        }
+
+        previous = Some(current);
+    }
+
+    Skip
 }
 
 impl From<LogosToken> for TokenKind {
