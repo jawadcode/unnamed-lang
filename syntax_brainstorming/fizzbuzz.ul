@@ -1,0 +1,23 @@
+import std::io
+
+function fizzbuzz n = match {n % 3, n % 5}
+  | {0, 0} => println "FizzBuzz"
+  | {0, _} => println "Fizz"
+  | {_. 0} => println "Buzz"
+end
+
+function main = do
+  (* I have no idea how to distinguish between
+     using a 0 argument function as a value
+     and calling it *)
+  let input = io::input;
+  let limit: int = input.parse;
+
+  (* For loops (tbd if will be added) *)
+  for i in 0..limit
+    fizzbuzz i
+  end
+  
+  (* Foreach *)
+  (0..i).foreach fizzbuzz
+end
