@@ -108,7 +108,7 @@ mod tests {
     #[test]
     fn parse_basic_fndef_no_params() {
         assert_stmt!(
-            r#"function yes = print "yes""#,
+            r#"function yes = print("yes")"#,
             r#"(define yes :params () :body (print "yes"))"#
         );
     }

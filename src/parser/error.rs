@@ -9,6 +9,7 @@ use codespan_reporting::{
     },
 };
 
+#[derive(Debug)]
 pub enum SyntaxError {
     UnexpectedToken {
         expected: String,

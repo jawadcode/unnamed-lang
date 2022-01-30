@@ -111,7 +111,7 @@ impl Parser<'_> {
             }
         };
 
-        if self.multi_at(&FUNCTION_ARG_TOKENS) {
+        if self.at(TokenKind::LeftParen) {
             lhs = self.parse_fn_call(lhs)?;
         }
 
@@ -378,33 +378,32 @@ impl Parser<'_> {
     }
 
     fn parse_fn_call(&mut self, lhs: Spanned<Expr>) -> ParseResult<Expr> {
+        // We can unwrap because `TokenKind::LeftParen` is guaranteed by `self.at` directly before calling
+        self.consume(TokenKind::LeftParen).unwrap();
         let mut args = Vec::new();
-        while self.multi_at(&FUNCTION_ARG_TOKENS) {
-            args.push(match self.peek() {
-                lit @ TokenKind::Unit
-                | lit @ TokenKind::True
-                | lit @ TokenKind::False
-                | lit @ TokenKind::IntLit
-                | lit @ TokenKind::FloatLit
-                | lit @ TokenKind::StringLit => self.parse_lit(lit)?,
-                TokenKind::Ident => self.parse_ident()?,
-                TokenKind::LeftParen => self.parse_grouping()?,
+        while !self.at(TokenKind::RightParen) {
+            args.push(self.expr()?);
 
+            match self.peek() {
+                TokenKind::RightParen => break,
+                TokenKind::Comma =>
+                    // We can unwrap because `TokenKind::Comma` is guaranteed by `self.peek`
+                    self.consume(TokenKind::Comma).unwrap(),
                 _ => {
                     let token = self.next_token()?;
                     return Err(SyntaxError::UnexpectedToken {
-                        expected: "function argument, operation or expression terminator"
-                            .to_string(),
+                        expected: "comma or right paren".to_string(),
                         token,
                     });
                 }
-            })
+            }
         }
+
+        let end = self.consume_next(TokenKind::RightParen)?;
+
         Ok(if args.is_empty() {
             lhs
         } else {
-            // We can unwrap because `args` is guaranteed to have at least one element here
-            let end = args.last().unwrap();
             Spanned {
                 span: (lhs.span.start..end.span.end).into(),
                 node: Expr::FnCall {
@@ -487,13 +486,13 @@ mod tests {
 
     #[test]
     fn parse_simple_function_call() {
-        assert_expr!("add 1 (69 + 420) 2", "(add 1 (+ 69 420) 2)");
+        assert_expr!("add(1, 69 + 420, 2)", "(add 1 (+ 69 420) 2)");
     }
 
     #[test]
     fn parse_nested_function_call() {
         assert_expr!(
-            "add (69 + 420) (add 57893 43280)",
+            "add(69 + 420, add(57893, 43280))",
             "(add (+ 69 420) (add 57893 43280))"
         );
     }
@@ -530,7 +529,7 @@ end",
             r#"
 do
   let thing = 123;
-  print "lol";
+  print("lol");
   let thing2 = 234;
   thing + thing2
 end"#,
