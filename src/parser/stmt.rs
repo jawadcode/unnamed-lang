@@ -49,8 +49,22 @@ impl Parser<'_> {
                 self.text(ident).to_string()
             });
         }
-        self.consume(TokenKind::Assign)?;
-        let body = self.boxed_expr()?;
+
+        let body = Box::new(match self.peek() {
+            TokenKind::Do => self.parse_block_expr()?,
+            TokenKind::Assign => {
+                // We can unwrap because it's guaranteed to be `TokenKind::Assign` by `self.peek`
+                self.consume(TokenKind::Assign).unwrap();
+                self.expr()?
+            }
+            _ => {
+                let token = self.next_token()?;
+                return Err(SyntaxError::UnexpectedToken {
+                    expected: "do or '='".to_string(),
+                    token,
+                });
+            }
+        });
 
         Ok(Spanned {
             span: (ident.span.start..body.span.end).into(),
@@ -118,6 +132,18 @@ mod tests {
         assert_stmt!(
             r#"
 function add x y = do
+    let thing1 = x + 1;
+    let thing2 = y + 2;
+    thing1 + thing2
+end"#,
+            "(define add :params (x y) :body (block ((let thing1 (+ x 1)) (let thing2 (+ y 2)) (+ thing1 thing2))))"
+        );
+    }
+
+    fn parse_fndef_block_sugar() {
+        assert_stmt!(
+            r#"
+function add x y do
     let thing1 = x + 1;
     let thing2 = y + 2;
     thing1 + thing2

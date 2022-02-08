@@ -77,7 +77,7 @@ mod tests {
             },
         };
         let input = "1 2";
-        error.display(input, "testing1.ul");
+        error.display(input, "error1.ul");
     }
 
     #[test]
@@ -87,7 +87,7 @@ mod tests {
             span: Span { start: 0, end: 61 },
         });
         let input = "1567384956783956738925673892567238956723895672389562895647389";
-        error.display(input, "testing2.ul");
+        error.display(input, "error2.ul");
     }
 
     #[test]
@@ -97,7 +97,7 @@ mod tests {
             span: Span { start: 2, end: 2 },
         });
         let input = "12";
-        error.display(input, "testing3.ul");
+        error.display(input, "error3.ul");
     }
 
     #[test]
@@ -107,6 +107,6 @@ mod tests {
             span: Span { start: 0, end: 12 },
         });
         let input = r#"%aaaaaaaaaaa"#;
-        error.display(input, "testing4.ul")
+        error.display(input, "error4.ul")
     }
 }

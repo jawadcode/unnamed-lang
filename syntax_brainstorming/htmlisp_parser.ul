@@ -1,15 +1,15 @@
 import std::(
   char
-  env,
-  fmt,
-  fs,
+  environment,
+  format,
+  filesystem,
   iterator::(Iterator, Peekable)
 )
 
 @derive(Show)
 enum Node =
   | Text of String
-  | Tag  of {
+  | Tag of {
       name: String,
       attributes: Vec[{String, String}],
       body: Vec[Node]
@@ -21,74 +21,75 @@ struct Parser = {
 
 
 impl Parser
-  function new input = Self { input }
+  public function new input = Self { input }
 
-  function parse = match self.input.peek?
-    | '(' => self.parse_tag
-    | '"' => self.parse_string.map Node::Text
+  public function parse = match self.input.peek?
+    | '(' => self.parse_tag()
+    | '"' => self.parse_string.map(Node::Text)
     | _ => @unreachable()
   end
 
-  private function parse_tag = do
-    self.input.next;
-    let name = self.parse_ident?;
-    self.input.skip_whitespace?;
-    let attributes = self.parse_attributes?;
+  function parse_tag do
+    self.input.next();
+    let name = self.parse_ident()?;
+    self.input.skip_whitespace()?;
+    let attributes = self.parse_attributes()?;
 
-    var body: Vec[Node] = Vec::new;
-    while @matches(self.input.peek?, peek == '(' || peek == '"')
-      body.push (self.parse?);
-      self.input.skip_whitespace;
+    var body: Vec[Node] = Vec::new();
+    while @matches(self.input.peek()?, peek == '(' || peek == '"')
+      body.push(self.parse()?);
+      self.input.skip_whitespace();
     end
 
-    self.skip_whitespace;
-    self.input.next;
-    Some (Node::Tag {
-      name, attributes, body
-    })
+    self.skip_whitespace();
+    self.input.next();
+    Some(Node::Tag { name, attributes, body })
   end
   
-  private function parse_attributes = do
-    let attributes: Vec[{String, String}] = Vec::new;
-    while self.input.peek? == ':'
-      self.input.next;
-      let attr = self.parse_ident?;
-      self.input.skip_whitespace;
-      let peeked = self.input.peek?;
-      let value = if peeked == ':' then ""
-                  else if peeked != '"' then return None
-                  else self.parse_string?;
+  function parse_attributes do
+    var attributes = Vec::new();
+    while self.input.peek()? == ':'
+      self.input.next();
+      let attr = self.parse_ident()?;
+      self.input.skip_whitespace();
+      let peeked = self.input.peek()?;
+      let value = if peeked == ':'
+                    then ""
+                  else if peeked != '"'
+                    then return None
+                  else self.parse_string()?;
       
-      attributes.push {attr, value};
+      attributes.push({attr, value});
     end
 
     attributes
   end
 
-  private function parse_ident =
-    self.input.peek_while (char::is_ascii_alphanum)
+  function parse_ident =
+    self.input.peek_while(char::is_ascii_alphanum)
   
-  private function parse_string = do
-    var prev = self.input.next?;
-    var str = String::new;
-    while self.input.peek? != '"' || prev == '\\'
-      let next = self.input.next?;
-      str.push next;
+  function parse_string = do
+    var prev = self.input.next()?;
+    var str = String::new();
+    while self.input.peek()? != '"' || prev == '\\'
+      let next = self.input.next()?;
+      str.push(next);
       prev = next;
     end
 
-    self.input.next;
-    str = str.replace "\\\"" "\"";
+    self.input.next();
+    str = str.replace("\\\"", "\"");
     Some(str)
   end
 end
 
 function main = do
-  let args = env::args;
-  let filename = args.next.unwrap;
-  let contents: String = fs::read_file filename;
-  var parser = Parser::new contents;
-  let ast = parser.parse;
+  let args = environment::args();
+  let filename = args.next.unwrap();
+  let contents = filesystem::read_file(filename);
+  
+  var parser = Parser::new(contents);
+  let ast = parser.parse();
 
-  fmt::printf "AST: %" [ast];
+  format::printf("AST: {}", ast);
 end

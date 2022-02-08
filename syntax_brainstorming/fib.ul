@@ -3,15 +3,15 @@ import std::format
 (* Pattern matching *)
 function fib n = match n
   | 0, 1 => 1
-  | _    => fib (n - 1) + fib (n - 2)
+  | _    => fib(n - 1) + fib(n - 2)
 end
 
 (* if statements *)
 function fib n =
   if n < 2 then 1
-  else fib (n - 1) + fib (n - 2)
+  else fib(n - 1) + fib(n - 2)
 
 function main = do
   let n = 21;
-  format::printf "fibonacci #% = %" [n, fib n] 
+  format::printf ("fibonacci #{} = {}", n, fib(n)) 
 end

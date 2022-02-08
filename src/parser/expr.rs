@@ -6,30 +6,6 @@ use crate::{
 
 use super::{error::SyntaxError, ParseResult, Parser, SyntaxResult};
 
-// const EXPRESSION_TERMINATOR: [TokenKind; 10] = [
-//     TokenKind::RightParen,
-//     TokenKind::FatArrow,
-//     TokenKind::Question,
-//     TokenKind::Semicolon,
-//     TokenKind::Comma,
-//     TokenKind::Pipe,
-//     TokenKind::Then,
-//     TokenKind::Else,
-//     TokenKind::End,
-//     TokenKind::Eof,
-// ];
-
-const FUNCTION_ARG_TOKENS: [TokenKind; 8] = [
-    TokenKind::Unit,
-    TokenKind::True,
-    TokenKind::False,
-    TokenKind::IntLit,
-    TokenKind::FloatLit,
-    TokenKind::StringLit,
-    TokenKind::LeftParen,
-    TokenKind::Ident,
-];
-
 const BASIC_EXPR_TOKENS: [TokenKind; 7] = [
     TokenKind::Unit,
     TokenKind::True,
@@ -345,7 +321,7 @@ impl Parser<'_> {
         })
     }
 
-    fn parse_block_expr(&mut self) -> ParseResult<Expr> {
+    pub fn parse_block_expr(&mut self) -> ParseResult<Expr> {
         let token = self.next_token()?;
         let mut exprs = Vec::new();
         while !self.at(TokenKind::End) {
@@ -387,8 +363,10 @@ impl Parser<'_> {
             match self.peek() {
                 TokenKind::RightParen => break,
                 TokenKind::Comma =>
-                    // We can unwrap because `TokenKind::Comma` is guaranteed by `self.peek`
-                    self.consume(TokenKind::Comma).unwrap(),
+                // We can unwrap because `TokenKind::Comma` is guaranteed by `self.peek`
+                {
+                    self.consume(TokenKind::Comma).unwrap()
+                }
                 _ => {
                     let token = self.next_token()?;
                     return Err(SyntaxError::UnexpectedToken {
