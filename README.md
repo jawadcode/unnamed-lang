@@ -1,14 +1,1 @@
-# Unnamed Lang (WIP):
-- [x] Tree-walk interpreter:
-    - [x] Lexer
-    - [x] Parser
-    - [x] Interpreter
-- [ ] Statically typed bytecode vm
-    - [ ] Type inference/checker
-        - [ ] Basic types (i.e. primitives + product types, no subtyping)
-        - [ ] Sum types
-        - [ ] Traits
-    - [ ] Bytecode VM
-        - [ ] Expressions
-        - [ ] Statements
-        - [ ] Add more stuff to this
+unnamed-lang is now called llama and has moved to https://github.com/jawadcode/llama
